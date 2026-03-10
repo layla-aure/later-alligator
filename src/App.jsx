@@ -1,7 +1,46 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import './App.css'
 
-const UNITS = ['minutes', 'hours', 'days', 'years']
+const UNITS = ['seconds', 'minutes', 'hours', 'days', 'fortnights', 'years']
+
+const T = {
+  en: {
+    subtitle:   '// craft your future timestamp //',
+    startTime:  'Starting Time',
+    intervals:  'Intervals',
+    addBtn:     '+ Add Interval',
+    empty:      'No intervals yet. Click "+ Add Interval" to start.',
+    endTime:    'Ending Time',
+    copy:       '⎘ Copy',
+    copied:     '✓ Copied',
+    units: {
+      seconds:    'seconds',
+      minutes:    'minutes',
+      hours:      'hours',
+      days:       'days',
+      fortnights: 'fortnights',
+      years:      'years',
+    },
+  },
+  es: {
+    subtitle:   '// construye tu marca de tiempo futura //',
+    startTime:  'Hora de inicio',
+    intervals:  'Intervalos',
+    addBtn:     '+ Agregar intervalo',
+    empty:      'Sin intervalos. Haz clic en "+ Agregar intervalo" para empezar.',
+    endTime:    'Hora de fin',
+    copy:       '⎘ Copiar',
+    copied:     '✓ Copiado',
+    units: {
+      seconds:    'segundos',
+      minutes:    'minutos',
+      hours:      'horas',
+      days:       'días',
+      fortnights: 'quincenas',
+      years:      'años',
+    },
+  },
+}
 
 function toLocalDateTimeString(date) {
   const pad = (n) => String(n).padStart(2, '0')
@@ -19,9 +58,11 @@ function addIntervalToDate(date, quantity, unit) {
   const qty = Number(quantity)
   if (!qty) return date
   switch (unit) {
-    case 'minutes': return new Date(ms + qty * 60_000)
-    case 'hours':   return new Date(ms + qty * 3_600_000)
-    case 'days':    return new Date(ms + qty * 86_400_000)
+    case 'seconds':    return new Date(ms + qty * 1_000)
+    case 'minutes':    return new Date(ms + qty * 60_000)
+    case 'hours':      return new Date(ms + qty * 3_600_000)
+    case 'days':       return new Date(ms + qty * 86_400_000)
+    case 'fortnights': return new Date(ms + qty * 14 * 86_400_000)
     case 'years': {
       const d = new Date(date)
       d.setFullYear(d.getFullYear() + qty)
@@ -45,7 +86,48 @@ function formatDisplay(date) {
   })
 }
 
-function CopyButton({ text }) {
+let nextId = 1
+
+function CustomSelect({ value, options, getLabel, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  return (
+    <div className="custom-select" ref={ref}>
+      <button
+        type="button"
+        className={`custom-select__trigger ${open ? 'open' : ''}`}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span>{getLabel(value)}</span>
+        <span className="custom-select__arrow">▼</span>
+      </button>
+      {open && (
+        <ul className="custom-select__dropdown">
+          {options.map(opt => (
+            <li
+              key={opt}
+              className={`custom-select__option ${opt === value ? 'selected' : ''}`}
+              onMouseDown={() => { onChange(opt); setOpen(false) }}
+            >
+              {getLabel(opt)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function CopyButton({ t, text }) {
   const [copied, setCopied] = useState(false)
   const timerRef = useRef(null)
 
@@ -59,17 +141,17 @@ function CopyButton({ text }) {
 
   return (
     <button className={`btn-copy ${copied ? 'copied' : ''}`} onClick={handleCopy} aria-label="Copy ending time">
-      {copied ? '✓ Copied' : '⎘ Copy'}
+      {copied ? t.copied : t.copy}
     </button>
   )
 }
 
-
-
 function App() {
+  const [lang, setLang] = useState('en')
   const [startValue, setStartValue] = useState(() => toLocalDateTimeString(new Date()))
   const [intervals, setIntervals] = useState([])
 
+  const t = T[lang]
   const startDate = new Date(startValue)
   const endDate = computeEndTime(startDate, intervals)
 
@@ -88,12 +170,16 @@ function App() {
   return (
     <div className="app">
       <header>
-        <h1>🐊 Later Alligator</h1>
-        <p className="subtitle">Calculate a future time by adding intervals</p>
+        <div className="lang-toggle">
+          <button className={`btn-lang ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
+          <button className={`btn-lang ${lang === 'es' ? 'active' : ''}`} onClick={() => setLang('es')}>ES</button>
+        </div>
+        <h1>⛏ Later Alligator</h1>
+        <p className="subtitle">{t.subtitle}</p>
       </header>
 
       <section className="card">
-        <h2>Starting Time</h2>
+        <h2>{t.startTime}</h2>
         <input
           type="datetime-local"
           step="1"
@@ -105,12 +191,12 @@ function App() {
 
       <section className="card">
         <div className="section-header">
-          <h2>Intervals</h2>
-          <button className="btn-add" onClick={addInterval}>+ Add Interval</button>
+          <h2>{t.intervals}</h2>
+          <button className="btn-add" onClick={addInterval}>{t.addBtn}</button>
         </div>
 
         {intervals.length === 0 && (
-          <p className="empty-msg">No intervals added yet. Click "+ Add Interval" to start.</p>
+          <p className="empty-msg">{t.empty}</p>
         )}
 
         <ul className="interval-list">
@@ -124,13 +210,12 @@ function App() {
                 onChange={e => updateInterval(interval.id, 'quantity', e.target.value)}
                 className="qty-input"
               />
-              <select
+              <CustomSelect
                 value={interval.unit}
-                onChange={e => updateInterval(interval.id, 'unit', e.target.value)}
-                className="unit-select"
-              >
-                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
+                options={UNITS}
+                getLabel={u => t.units[u]}
+                onChange={val => updateInterval(interval.id, 'unit', val)}
+              />
               <button
                 className="btn-remove"
                 onClick={() => removeInterval(interval.id)}
@@ -144,10 +229,10 @@ function App() {
       </section>
 
       <section className="card result-card">
-        <h2>Ending Time</h2>
+        <h2>{t.endTime}</h2>
         <div className="end-time-row">
           <div className="end-time">{formatDisplay(endDate)}</div>
-          <CopyButton text={formatDisplay(endDate)} />
+          <CopyButton t={t} text={formatDisplay(endDate)} />
         </div>
       </section>
     </div>
