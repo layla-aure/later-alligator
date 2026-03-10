@@ -1,0 +1,2 @@
+Later alligator app lets the user pick a starting time. The starting time defaults to the current year, month, day, hour, minute, and second. The user can then add 0 or more intervals that get added ti the starting time. For each interval, they pick the quantity ad the unit. The unit can b eminutes, hours, days, or years. Th eapp also displays the ending time, which should automatically update as intervals are added or modified.
+The app is built out of JavaScript and React.
